@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>客語小字典 (Hakka Helper)</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>客語小字典</h1>
+            <p>輸入華語，查詢客語說法 (資料來源：萌典)</p>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="例如：老師、蘋果、學校..." autocomplete="off">
+            <button onclick="searchHakka()">
+                <i class="fas fa-search"></i> 搜尋
+            </button>
+        </div>
+
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>正在翻字典...</p>
+        </div>
+
+        <div id="resultArea">
+            </div>
+    </div>
+
+    <script>
+        // 核心程式碼：連接萌典 API
+        async function searchHakka() {
+            const input = document.getElementById('searchInput').value.trim();
+            const resultArea = document.getElementById('resultArea');
+            const loading = document.getElementById('loading');
+
+            if (!input) return;
+
+            // 清空舊結果並顯示載入中
+            resultArea.innerHTML = '';
+            loading.classList.remove('hidden');
+
+            try {
+                // 連線到萌典客語 API (解決政府網站 CORS 問題的關鍵)
+                const response = await fetch(`https://www.moedict.tw/hakka/${input}.json`);
+                
+                if (!response.ok) {
+                    throw new Error("查無此詞");
+                }
+
+                const data = await response.json();
+                displayResult(data, input);
+
+            } catch (error) {
+                resultArea.innerHTML = `
+                    <div class="error-card">
+                        <h3>😢 找不到「${input}」</h3>
+                        <p>可能是這個詞太新，或是字典裡沒有收錄。<br>試試看搜尋別的詞？</p>
+                    </div>
+                `;
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // 顯示結果的邏輯
+        function displayResult(data, keyword) {
+            const resultArea = document.getElementById('resultArea');
+            
+            // 萌典的資料結構比較複雜，我們需要把不同腔調抓出來
+            // h = heteronyms (多音字/不同讀音)
+            let htmlContent = `<h2>「${keyword}」的客語結果：</h2>`;
+
+            if(data.h) {
+                data.h.forEach((item, index) => {
+                    // 建立發音卡片
+                    let pinyin = item.p || "無拼音資料";
+                    // 嘗試轉換腔調代號為中文名稱 (四縣、海陸等)
+                    // 萌典格式通常將腔調寫在拼音裡，這裡做簡單呈現
+                    
+                    let definitions = item.d || [];
+                    let defHtml = definitions.map(d => `<li>${d.f}</li>`).join('');
+
+                    htmlContent += `
+                        <div class="result-card">
+                            <div class="pinyin-box">
+                                <span class="label">發音/拼音</span>
+                                <div class="pinyin-text">${pinyin}</div>
+                            </div>
+                            <div class="definition-box">
+                                <span class="label">釋義</span>
+                                <ul>${defHtml}</ul>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            resultArea.innerHTML = htmlContent;
+        }
+
+        // 讓按 Enter 鍵也能搜尋
+        document.getElementById("searchInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                searchHakka();
+            }
+        });
+    </script>
+</body>
+</html>
